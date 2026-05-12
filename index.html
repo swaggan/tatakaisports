@@ -1,0 +1,1983 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TATAKAI Sports AI | AI Badminton Demo</title>
+  <meta name="description" content="用雙攝影機將羽球比賽轉換為 3D 賽場數據，生成 AI 賽評、語音播報與運動分析平台。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #030605;
+      --surface: rgba(12, 20, 17, 0.76);
+      --surface-strong: rgba(15, 25, 21, 0.94);
+      --line: rgba(255, 255, 255, 0.12);
+      --line-green: rgba(185, 255, 61, 0.34);
+      --text: #f4fff7;
+      --muted: #aab8b1;
+      --green: #b9ff3d;
+      --cyan: #43d7ff;
+      --blue: #4d79ff;
+      --red: #ff4f5f;
+      --yellow: #ffd33d;
+      --radius: 8px;
+      --max: 1180px;
+      --nav: 72px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+      color: var(--text);
+      background:
+        linear-gradient(rgba(185, 255, 61, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(67, 215, 255, 0.03) 1px, transparent 1px),
+        radial-gradient(circle at 72% 12%, rgba(185, 255, 61, 0.12), transparent 30%),
+        linear-gradient(180deg, #030605 0%, #07100d 48%, #020403 100%);
+      background-size: 44px 44px, 44px 44px, 100% 100%, 100% 100%;
+      overflow-x: hidden;
+      letter-spacing: 0;
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, rgba(0, 0, 0, 0.68), transparent 28%, transparent 70%, rgba(0, 0, 0, 0.62)),
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 5px);
+      opacity: 0.74;
+    }
+
+    img,
+    svg,
+    video {
+      display: block;
+      max-width: 100%;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .shell {
+      width: min(var(--max), calc(100% - 44px));
+      margin: 0 auto;
+    }
+
+    .site-nav {
+      position: fixed;
+      inset: 0 0 auto;
+      z-index: 50;
+      height: var(--nav);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(3, 7, 5, 0.78);
+      backdrop-filter: blur(18px);
+    }
+
+    .nav-inner {
+      height: var(--nav);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 900;
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(185, 255, 61, 0.55);
+      background:
+        linear-gradient(135deg, rgba(185, 255, 61, 0.95), rgba(67, 215, 255, 0.22)),
+        #101813;
+      position: relative;
+      box-shadow: 0 0 26px rgba(185, 255, 61, 0.24);
+    }
+
+    .brand-mark::before,
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      left: 7px;
+      right: 7px;
+      top: 10px;
+      height: 2px;
+      background: #041008;
+      transform: rotate(-24deg);
+    }
+
+    .brand-mark::after {
+      top: auto;
+      bottom: 10px;
+      transform: rotate(24deg);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      color: var(--muted);
+      font-weight: 800;
+      font-size: 0.88rem;
+    }
+
+    .nav-links a {
+      transition: color 160ms ease;
+    }
+
+    .nav-links a:hover {
+      color: var(--green);
+    }
+
+    .nav-cta,
+    .primary-cta,
+    .ghost-cta {
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(185, 255, 61, 0.45);
+      padding: 0 16px;
+      color: #061007;
+      background: var(--green);
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 18px 42px rgba(185, 255, 61, 0.16);
+      transition: transform 160ms ease, box-shadow 160ms ease;
+    }
+
+    .nav-cta:hover,
+    .primary-cta:hover,
+    .ghost-cta:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 22px 52px rgba(185, 255, 61, 0.2);
+    }
+
+    .ghost-cta {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.18);
+      box-shadow: none;
+    }
+
+    .section {
+      min-height: 100svh;
+      padding: calc(var(--nav) + 52px) 0 58px;
+      display: flex;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      isolation: isolate;
+    }
+
+    .section::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -2;
+      background:
+        radial-gradient(circle at 18% 24%, rgba(185, 255, 61, 0.1), transparent 26%),
+        radial-gradient(circle at 78% 68%, rgba(67, 215, 255, 0.07), transparent 30%);
+      opacity: 0.76;
+    }
+
+    #home {
+      align-items: flex-end;
+      background: #020403;
+    }
+
+    #home::before {
+      z-index: -1;
+      background:
+        linear-gradient(90deg, rgba(2, 4, 3, 0.98) 0%, rgba(2, 4, 3, 0.78) 36%, rgba(2, 4, 3, 0.2) 70%, rgba(2, 4, 3, 0.64) 100%),
+        linear-gradient(180deg, rgba(2, 4, 3, 0.42) 0%, rgba(2, 4, 3, 0.08) 42%, rgba(2, 4, 3, 0.88) 100%),
+        radial-gradient(circle at 72% 32%, rgba(185, 255, 61, 0.16), transparent 28%);
+      opacity: 1;
+    }
+
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      z-index: -2;
+      width: 100%;
+      height: 100%;
+      max-width: none;
+      object-fit: cover;
+      object-position: center;
+      opacity: 0.9;
+      filter: contrast(1.08) saturate(1.08);
+    }
+
+    .kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--green);
+      font-weight: 900;
+      font-size: 0.88rem;
+      margin-bottom: 18px;
+    }
+
+    .kicker::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 20px rgba(185, 255, 61, 0.84);
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    .headline {
+      margin-bottom: 22px;
+      font-size: clamp(3rem, 7vw, 6.8rem);
+      line-height: 0.94;
+      font-weight: 900;
+      letter-spacing: 0;
+      text-wrap: balance;
+    }
+
+    [data-motion-title-line] {
+      display: block;
+      will-change: transform, opacity;
+    }
+
+    .headline .accent,
+    .section-title .accent {
+      color: var(--green);
+    }
+
+    [data-motion-glow] {
+      will-change: filter, text-shadow;
+    }
+
+    .section-title {
+      margin-bottom: 18px;
+      font-size: clamp(2.35rem, 5vw, 5.1rem);
+      line-height: 0.98;
+      font-weight: 900;
+      letter-spacing: 0;
+      text-wrap: balance;
+    }
+
+    .lead {
+      max-width: 720px;
+      margin-bottom: 30px;
+      color: #dcece3;
+      font-size: clamp(1rem, 1.4vw, 1.2rem);
+      line-height: 1.8;
+    }
+
+    .media-grid,
+    .split-grid,
+    .platform-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 0.92fr) minmax(420px, 1.08fr);
+      gap: 18px;
+      align-items: center;
+    }
+
+    .hero-copy,
+    .section-copy {
+      position: relative;
+      z-index: 2;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .hero-grid {
+      display: block;
+      padding-top: 12vh;
+    }
+
+    #home .hero-copy {
+      max-width: 1100px;
+    }
+
+    #home .headline {
+      max-width: 1120px;
+    }
+
+    #home .lead {
+      max-width: 840px;
+      text-shadow: 0 2px 22px rgba(0, 0, 0, 0.74);
+    }
+
+    .product-pillars {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 46px;
+    }
+
+    .pillar-card {
+      min-height: 148px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
+        rgba(8, 15, 12, 0.82);
+      padding: 20px;
+      box-shadow: 0 20px 70px rgba(0, 0, 0, 0.28);
+    }
+
+    .pillar-card span {
+      display: inline-flex;
+      color: var(--green);
+      font-weight: 900;
+      font-size: 0.78rem;
+      margin-bottom: 18px;
+    }
+
+    .pillar-card strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--text);
+      font-size: 1.28rem;
+      line-height: 1.2;
+    }
+
+    .pillar-card p {
+      margin-bottom: 0;
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 0.92rem;
+    }
+
+    .visual-card {
+      position: relative;
+      overflow: hidden;
+      min-height: 420px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
+        var(--surface);
+      box-shadow: 0 26px 90px rgba(0, 0, 0, 0.42);
+    }
+
+    .visual-card.glow {
+      border-color: var(--line-green);
+      box-shadow:
+        0 30px 100px rgba(0, 0, 0, 0.5),
+        inset 0 0 80px rgba(185, 255, 61, 0.05);
+    }
+
+    .panel-label {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 5;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 0 10px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(255, 255, 255, 0.13);
+      background: rgba(0, 0, 0, 0.36);
+      color: #eaffd0;
+      font-size: 0.78rem;
+      font-weight: 900;
+      backdrop-filter: blur(12px);
+    }
+
+    .panel-label::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 16px rgba(185, 255, 61, 0.76);
+    }
+
+    .video-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 5px);
+      opacity: 0.42;
+    }
+
+    .media-grid {
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    .video-card {
+      min-height: 0;
+      aspect-ratio: 1810 / 878;
+      background: #050807;
+    }
+
+    .video-card video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #050807;
+      filter: contrast(1.02) brightness(1.14) saturate(1.03);
+    }
+
+    .commentary-video-card {
+      min-height: 430px;
+      aspect-ratio: 16 / 9;
+      background: #000;
+    }
+
+    .commentary-video-card video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #000;
+    }
+
+    .rag-visual {
+      display: block;
+    }
+
+    #rag {
+      align-items: flex-start;
+    }
+
+    .rag-pipeline-card {
+      min-height: clamp(560px, 52vw, 690px);
+      padding: 56px 26px 26px;
+      background:
+        radial-gradient(circle at 50% 48%, rgba(185, 255, 61, 0.16), transparent 26%),
+        radial-gradient(circle at 16% 24%, rgba(67, 215, 255, 0.1), transparent 25%),
+        radial-gradient(circle at 86% 64%, rgba(185, 255, 61, 0.08), transparent 20%),
+        linear-gradient(rgba(185, 255, 61, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(67, 215, 255, 0.045) 1px, transparent 1px),
+        rgba(3, 8, 6, 0.92);
+      background-size: 100% 100%, 100% 100%, 100% 100%, 34px 34px, 34px 34px, 100% 100%;
+    }
+
+    .scan-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: -12%;
+      z-index: 1;
+      height: 86px;
+      pointer-events: none;
+      background:
+        linear-gradient(180deg, transparent, rgba(185, 255, 61, 0.11), transparent),
+        linear-gradient(90deg, transparent, rgba(185, 255, 61, 0.2), transparent);
+      opacity: 0;
+      mix-blend-mode: screen;
+    }
+
+    .rag-flow {
+      min-height: 100%;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 54px minmax(0, 1.18fr) 54px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      position: relative;
+      z-index: 2;
+    }
+
+    .rag-step {
+      min-height: 340px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border-radius: var(--radius);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.02)),
+        rgba(0, 0, 0, 0.36);
+      padding: 22px;
+      box-shadow:
+        0 22px 70px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .rag-step.layer {
+      min-height: 410px;
+      border-color: rgba(185, 255, 61, 0.66);
+      background:
+        radial-gradient(circle at 50% 48%, rgba(185, 255, 61, 0.18), transparent 48%),
+        linear-gradient(135deg, rgba(185, 255, 61, 0.18), rgba(67, 215, 255, 0.08)),
+        rgba(4, 12, 8, 0.88);
+      box-shadow:
+        0 0 72px rgba(185, 255, 61, 0.22),
+        inset 0 0 58px rgba(185, 255, 61, 0.06);
+    }
+
+    .rag-step span {
+      color: var(--green);
+      font-size: 0.78rem;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .rag-step strong {
+      display: block;
+      margin: 14px 0 12px;
+      color: var(--text);
+      font-size: clamp(1.45rem, 2.4vw, 2.25rem);
+      line-height: 1.04;
+      font-weight: 900;
+    }
+
+    .rag-step p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.65;
+    }
+
+    .commentary-stack {
+      position: relative;
+      min-height: 128px;
+      margin: 20px 0 14px;
+    }
+
+    .quote-card {
+      position: absolute;
+      width: min(210px, 92%);
+      border-radius: var(--radius);
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      background: rgba(2, 6, 5, 0.68);
+      color: #dff5e7;
+      padding: 10px 12px;
+      font-size: 0.78rem;
+      line-height: 1.45;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.32);
+    }
+
+    .quote-card::before {
+      content: "“";
+      color: var(--green);
+      font-size: 1.2rem;
+      font-weight: 900;
+      margin-right: 4px;
+    }
+
+    .quote-card.one {
+      left: 0;
+      top: 0;
+      transform: rotate(4deg);
+    }
+
+    .quote-card.two {
+      left: 24px;
+      top: 46px;
+      transform: rotate(-2deg);
+    }
+
+    .quote-card.three {
+      left: 8px;
+      top: 92px;
+      transform: rotate(2deg);
+    }
+
+    .mini-wave {
+      width: 100%;
+      height: 42px;
+      margin-top: 10px;
+      background:
+        linear-gradient(90deg, transparent 0 6%, rgba(185, 255, 61, 0.72) 6% 7%, transparent 7% 11%, rgba(185, 255, 61, 0.42) 11% 12%, transparent 12% 18%, rgba(185, 255, 61, 0.9) 18% 19%, transparent 19% 24%, rgba(67, 215, 255, 0.55) 24% 25%, transparent 25% 100%);
+      mask: linear-gradient(180deg, transparent 0 24%, #000 24% 78%, transparent 78%);
+      opacity: 0.85;
+    }
+
+    .knowledge-diagram {
+      position: relative;
+      min-height: 210px;
+      margin: 20px 0 12px;
+    }
+
+    .source-list,
+    .retrieval-list {
+      position: absolute;
+      top: 18px;
+      width: 116px;
+      display: grid;
+      gap: 9px;
+      z-index: 2;
+    }
+
+    .source-list {
+      left: 0;
+    }
+
+    .retrieval-list {
+      right: 0;
+    }
+
+    .source-list span,
+    .retrieval-list span {
+      display: flex;
+      align-items: center;
+      min-height: 36px;
+      padding: 0 10px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(185, 255, 61, 0.22);
+      background: rgba(0, 0, 0, 0.42);
+      color: #eaffd0;
+      font-size: 0.68rem;
+      text-transform: none;
+    }
+
+    .rag-database {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 112px;
+      height: 92px;
+      transform: translate(-50%, -42%);
+      border-radius: 50% / 16%;
+      border: 1px solid rgba(185, 255, 61, 0.64);
+      background:
+        radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.24), transparent 18%),
+        linear-gradient(180deg, rgba(185, 255, 61, 0.46), rgba(77, 121, 255, 0.08));
+      box-shadow:
+        0 0 44px rgba(185, 255, 61, 0.28),
+        inset 0 0 22px rgba(185, 255, 61, 0.18);
+    }
+
+    .rag-database::before,
+    .rag-database::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 26px;
+      border-radius: 50%;
+      border: 1px solid rgba(234, 255, 208, 0.32);
+    }
+
+    .rag-database::before {
+      top: 18px;
+    }
+
+    .rag-database::after {
+      top: 48px;
+    }
+
+    .knowledge-lines {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0.8;
+    }
+
+    .knowledge-lines path {
+      fill: none;
+      stroke: rgba(185, 255, 61, 0.48);
+      stroke-width: 1.2;
+      stroke-dasharray: 4 7;
+    }
+
+    .output-bubble {
+      margin: 18px 0 14px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(255, 255, 255, 0.13);
+      background: rgba(0, 0, 0, 0.42);
+      padding: 16px;
+      color: #dfece5;
+      line-height: 1.65;
+      font-size: 0.9rem;
+    }
+
+    .output-bubble::before {
+      content: "“";
+      color: var(--green);
+      font-size: 1.5rem;
+      font-weight: 900;
+      margin-right: 5px;
+    }
+
+    .audio-strip {
+      display: grid;
+      grid-template-columns: 30px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .play-dot {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: var(--green);
+      color: #061007;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      box-shadow: 0 0 22px rgba(185, 255, 61, 0.34);
+    }
+
+    .audio-bars {
+      height: 30px;
+      background:
+        linear-gradient(90deg, rgba(185, 255, 61, 0.4) 0 2px, transparent 2px 7px),
+        linear-gradient(90deg, transparent, rgba(185, 255, 61, 0.9), transparent);
+      background-size: 7px 100%, 100% 2px;
+      background-position: 0 0, 0 50%;
+      background-repeat: repeat-x, no-repeat;
+      mask: linear-gradient(180deg, transparent 0 18%, #000 18% 84%, transparent 84%);
+    }
+
+    .audio-bars.is-playing {
+      animation: waveformRun 1.05s linear infinite;
+    }
+
+    .rag-step .rag-token {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      min-height: 34px;
+      margin-top: 20px;
+      padding: 0 11px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(185, 255, 61, 0.32);
+      color: #061007;
+      background: var(--green);
+      font-size: 0.78rem;
+      font-weight: 900;
+    }
+
+    .rag-arrow {
+      position: relative;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(185, 255, 61, 0.16), var(--green));
+      box-shadow: 0 0 22px rgba(185, 255, 61, 0.3);
+      overflow: visible;
+    }
+
+    .rag-arrow::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 0;
+      height: 100%;
+      background: var(--green);
+      box-shadow: 0 0 18px rgba(185, 255, 61, 0.58);
+    }
+
+    .rag-arrow.is-flowing::before {
+      animation: arrowCharge 760ms ease-out both;
+    }
+
+    .rag-arrow::after {
+      content: "";
+      position: absolute;
+      right: -1px;
+      top: 50%;
+      width: 10px;
+      height: 10px;
+      border-top: 2px solid var(--green);
+      border-right: 2px solid var(--green);
+      transform: translateY(-50%) rotate(45deg);
+      box-shadow: 8px -8px 24px rgba(185, 255, 61, 0.22);
+    }
+
+    .flow-particle {
+      position: absolute;
+      left: -3px;
+      top: 50%;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--green);
+      opacity: 0;
+      box-shadow: 0 0 16px rgba(185, 255, 61, 0.78);
+      transform: translateY(-50%);
+    }
+
+    .rag-arrow.is-flowing .flow-particle {
+      animation: particleFlow 820ms ease-out both;
+      animation-delay: var(--particle-delay, 0ms);
+    }
+
+    .rag-benefits {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0;
+      margin-top: 24px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(185, 255, 61, 0.24);
+      background: rgba(5, 12, 9, 0.72);
+      backdrop-filter: blur(12px);
+      overflow: hidden;
+    }
+
+    .rag-benefit {
+      display: grid;
+      grid-template-columns: 52px 1fr;
+      gap: 14px;
+      align-items: center;
+      min-height: 92px;
+      padding: 18px;
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .rag-benefit:last-child {
+      border-right: 0;
+    }
+
+    .benefit-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      border: 1px solid rgba(185, 255, 61, 0.38);
+      background: rgba(185, 255, 61, 0.08);
+      color: var(--green);
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      box-shadow: inset 0 0 24px rgba(185, 255, 61, 0.08);
+    }
+
+    .rag-benefit strong {
+      display: block;
+      color: var(--green);
+      margin-bottom: 5px;
+      font-size: 1.05rem;
+    }
+
+    .rag-benefit p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+
+    #platform {
+      background:
+        radial-gradient(circle at 72% 48%, rgba(185, 255, 61, 0.1), transparent 34%),
+        radial-gradient(circle at 28% 54%, rgba(67, 215, 255, 0.055), transparent 28%),
+        #020403;
+    }
+
+    .platform-grid {
+      grid-template-columns: minmax(360px, 0.82fr) minmax(560px, 1.18fr);
+      gap: clamp(34px, 5vw, 76px);
+    }
+
+    #platform::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: -22%;
+      z-index: 1;
+      height: 120px;
+      pointer-events: none;
+      background:
+        linear-gradient(180deg, transparent 0%, rgba(185, 255, 61, 0.018) 44%, rgba(185, 255, 61, 0.052) 50%, rgba(67, 215, 255, 0.012) 57%, transparent 100%),
+        linear-gradient(90deg, transparent 0%, rgba(185, 255, 61, 0.04) 50%, transparent 100%);
+      filter: blur(0.5px);
+      mix-blend-mode: screen;
+      opacity: 0.36;
+      animation: platformScanLine 28s linear infinite;
+    }
+
+    #platform .platform-grid {
+      position: relative;
+      z-index: 2;
+    }
+
+    .platform-copy .closing-line {
+      display: block;
+      max-width: 430px;
+      color: rgba(234, 255, 208, 0.62);
+    }
+
+    .platform-status {
+      display: grid;
+      grid-template-columns: 40px minmax(170px, 1.2fr) repeat(3, minmax(58px, 0.42fr));
+      align-items: center;
+      gap: 16px;
+      max-width: 520px;
+      margin-top: 34px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(1, 7, 5, 0.64);
+      padding: 16px;
+      box-shadow: inset 0 0 40px rgba(185, 255, 61, 0.035);
+    }
+
+    .status-pulse {
+      width: 40px;
+      height: 40px;
+      color: var(--green);
+      display: grid;
+      place-items: center;
+    }
+
+    .status-pulse svg {
+      width: 34px;
+      height: 34px;
+    }
+
+    .status-item span {
+      display: block;
+      color: var(--green);
+      font-size: 0.66rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .status-item strong {
+      display: block;
+      color: var(--text);
+      font-size: 1.05rem;
+      line-height: 1.1;
+      font-weight: 800;
+    }
+
+    .status-item.metric {
+      border-left: 1px solid rgba(255, 255, 255, 0.1);
+      padding-left: 16px;
+    }
+
+    .flywheel-card {
+      position: relative;
+      min-height: min(620px, calc(100svh - 150px));
+      overflow: visible;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+    }
+
+    .court-ghost {
+      position: absolute;
+      left: -10%;
+      top: 8%;
+      width: 48%;
+      max-width: 360px;
+      opacity: 0.23;
+      transform: rotate(12deg);
+      pointer-events: none;
+    }
+
+    .court-ghost line,
+    .court-ghost rect {
+      fill: none;
+      stroke: rgba(185, 255, 61, 0.42);
+      stroke-width: 1;
+    }
+
+    .flywheel-lines {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      opacity: 0.9;
+    }
+
+    .flywheel-ring {
+      fill: none;
+      stroke: rgba(185, 255, 61, 0.28);
+      stroke-width: 1.4;
+      stroke-dasharray: 10 13;
+      animation: orbitDash 24s linear infinite;
+    }
+
+    .flywheel-pulse {
+      fill: none;
+      stroke: rgba(185, 255, 61, 0.54);
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-dasharray: 86 640;
+      filter: drop-shadow(0 0 9px rgba(185, 255, 61, 0.62));
+      animation: orbitDash 10s linear infinite reverse;
+    }
+
+    .flywheel-arc {
+      fill: none;
+      stroke: rgba(67, 215, 255, 0.16);
+      stroke-width: 30;
+      stroke-linecap: round;
+      stroke-dasharray: 100 880;
+      opacity: 0.55;
+      animation: orbitDash 18s linear infinite;
+    }
+
+    .flywheel-core {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: clamp(210px, 22vw, 260px);
+      height: clamp(210px, 22vw, 260px);
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      border: 1px solid rgba(185, 255, 61, 0.55);
+      background:
+        radial-gradient(circle at 38% 30%, rgba(255, 255, 255, 0.34), transparent 10%),
+        radial-gradient(circle at 50% 54%, rgba(185, 255, 61, 0.2), transparent 56%),
+        repeating-radial-gradient(circle at 50% 50%, rgba(185, 255, 61, 0.16) 0 1px, transparent 1px 9px),
+        linear-gradient(145deg, rgba(185, 255, 61, 0.28), rgba(17, 31, 22, 0.72));
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 30px;
+      box-shadow:
+        0 0 86px rgba(185, 255, 61, 0.28),
+        inset 0 0 48px rgba(185, 255, 61, 0.22);
+      z-index: 4;
+    }
+
+    .flywheel-core::before {
+      content: "";
+      position: absolute;
+      inset: 12%;
+      border-radius: 50%;
+      border: 1px solid rgba(234, 255, 208, 0.18);
+      background:
+        linear-gradient(rgba(234, 255, 208, 0.16) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(234, 255, 208, 0.12) 1px, transparent 1px);
+      background-size: 26px 26px;
+      mask-image: radial-gradient(circle, #000 58%, transparent 72%);
+      opacity: 0.65;
+    }
+
+    .flywheel-core span,
+    .flywheel-core strong {
+      position: relative;
+      z-index: 2;
+    }
+
+    .flywheel-core span {
+      color: var(--green);
+      font-size: 0.8rem;
+      font-weight: 900;
+      margin-bottom: 12px;
+    }
+
+    .flywheel-core strong {
+      max-width: 100%;
+      font-size: clamp(1.55rem, 2.4vw, 2.25rem);
+      line-height: 1.05;
+      font-weight: 900;
+      letter-spacing: 0;
+      text-shadow: 0 0 26px rgba(0, 0, 0, 0.7);
+    }
+
+    .flywheel-node {
+      position: absolute;
+      z-index: 5;
+      width: 230px;
+      min-height: 88px;
+      display: grid;
+      grid-template-columns: 58px 1fr;
+      gap: 14px;
+      align-items: center;
+      color: var(--text);
+    }
+
+    .node-icon {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      border: 1px solid rgba(185, 255, 61, 0.35);
+      background: rgba(185, 255, 61, 0.07);
+      color: var(--green);
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      box-shadow:
+        0 0 34px rgba(185, 255, 61, 0.13),
+        inset 0 0 22px rgba(185, 255, 61, 0.08);
+    }
+
+    .flywheel-node:hover .node-icon {
+      border-color: rgba(185, 255, 61, 0.6);
+      box-shadow:
+        0 0 42px rgba(185, 255, 61, 0.22),
+        inset 0 0 24px rgba(185, 255, 61, 0.12);
+    }
+
+    .flywheel-node span {
+      display: block;
+      color: var(--green);
+      font-size: 0.8rem;
+      font-weight: 900;
+      margin-bottom: 7px;
+    }
+
+    .flywheel-node strong {
+      display: block;
+      color: var(--text);
+      font-size: 1.05rem;
+      line-height: 1.22;
+      margin-bottom: 6px;
+    }
+
+    .flywheel-node p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.55;
+    }
+
+    .node-capture { left: 48%; top: 7%; }
+    .node-reconstruct { right: -1%; top: 31%; }
+    .node-understand { right: 9%; bottom: 10%; }
+    .node-broadcast { left: 13%; bottom: 9%; }
+    .node-improve { left: 0; top: 42%; }
+
+    .closing-line {
+      display: inline-flex;
+      margin-top: 26px;
+      border-left: 2px solid var(--green);
+      padding-left: 14px;
+      color: #eaffd0;
+      font-weight: 900;
+      line-height: 1.6;
+    }
+
+    .reveal {
+      transform: translateY(18px);
+      opacity: 0;
+      transition: transform 700ms ease, opacity 700ms ease;
+    }
+
+    .reveal.visible {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    @keyframes orbitDash {
+      to { stroke-dashoffset: -640; }
+    }
+
+    @keyframes arrowCharge {
+      0% { width: 0; opacity: 0; }
+      22% { opacity: 1; }
+      100% { width: 100%; opacity: 0; }
+    }
+
+    @keyframes particleFlow {
+      0% {
+        opacity: 0;
+        transform: translate(0, -50%) scale(0.55);
+      }
+      18% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0;
+        transform: translate(54px, -50%) scale(1);
+      }
+    }
+
+    @keyframes particleFlowDown {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, 0) scale(0.55);
+      }
+      18% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, 40px) scale(1);
+      }
+    }
+
+    @keyframes waveformRun {
+      to {
+        background-position: 28px 0, 0 50%;
+      }
+    }
+
+    @keyframes platformScanLine {
+      from {
+        transform: translate3d(0, -24%, 0);
+      }
+      to {
+        transform: translate3d(0, 140vh, 0);
+      }
+    }
+
+    @media (max-width: 980px) {
+      :root {
+        --nav: 64px;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .split-grid,
+      .platform-grid,
+      .rag-visual {
+        grid-template-columns: 1fr;
+      }
+
+      .commentary-video-card,
+      .flywheel-card {
+        min-height: 600px;
+      }
+
+      .rag-flow {
+        grid-template-columns: 1fr;
+      }
+
+      .rag-arrow {
+        width: 2px;
+        height: 40px;
+        justify-self: center;
+        background: linear-gradient(180deg, rgba(185, 255, 61, 0.16), var(--green));
+      }
+
+      .rag-arrow::before {
+        width: 100%;
+        height: 0;
+      }
+
+      .rag-arrow.is-flowing::before {
+        animation-name: arrowChargeDown;
+      }
+
+      .rag-arrow::after {
+        right: 50%;
+        top: auto;
+        bottom: -1px;
+        transform: translateX(50%) rotate(135deg);
+      }
+
+      .flow-particle {
+        left: 50%;
+        top: -3px;
+        transform: translateX(-50%);
+      }
+
+      .rag-arrow.is-flowing .flow-particle {
+        animation-name: particleFlowDown;
+      }
+
+      .rag-step,
+      .rag-step.layer {
+        min-height: auto;
+      }
+
+      .rag-benefits {
+        grid-template-columns: 1fr;
+      }
+
+      .rag-benefit,
+      .rag-benefit:last-child {
+        border-right: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .rag-benefit:last-child {
+        border-bottom: 0;
+      }
+    }
+
+    @keyframes arrowChargeDown {
+      0% { height: 0; opacity: 0; }
+      22% { opacity: 1; }
+      100% { height: 100%; opacity: 0; }
+    }
+
+    @media (max-width: 680px) {
+      .shell {
+        width: min(100% - 28px, var(--max));
+      }
+
+      .brand-text {
+        display: none;
+      }
+
+      .nav-cta {
+        padding: 0 12px;
+      }
+
+      .section {
+        min-height: auto;
+        padding: calc(var(--nav) + 42px) 0 48px;
+      }
+
+      .headline {
+        font-size: 3.05rem;
+      }
+
+      .section-title {
+        font-size: 2.45rem;
+      }
+
+      .lead {
+        font-size: 1rem;
+      }
+
+      .commentary-video-card,
+      .rag-pipeline-card,
+      .flywheel-card {
+        min-height: 330px;
+      }
+
+      .rag-pipeline-card {
+        padding: 58px 14px 14px;
+      }
+
+      .commentary-stack {
+        min-height: 142px;
+      }
+
+      .knowledge-diagram {
+        min-height: 260px;
+      }
+
+      .source-list,
+      .retrieval-list {
+        position: relative;
+        top: auto;
+        left: auto;
+        right: auto;
+        width: 100%;
+        grid-template-columns: 1fr;
+      }
+
+      .source-list {
+        margin-bottom: 16px;
+      }
+
+      .retrieval-list {
+        margin-top: 144px;
+      }
+
+      .rag-database {
+        top: 52%;
+      }
+
+      .product-pillars {
+        grid-template-columns: 1fr;
+      }
+
+      .flywheel-card {
+        min-height: auto;
+        padding: 18px;
+      }
+
+      .platform-status {
+        grid-template-columns: 40px 1fr;
+        max-width: none;
+      }
+
+      .status-item.metric {
+        border-left: 0;
+        padding-left: 0;
+      }
+
+      .flywheel-lines {
+        display: none;
+      }
+
+      .flywheel-core,
+      .flywheel-node {
+        position: relative;
+        left: auto;
+        right: auto;
+        top: auto;
+        bottom: auto;
+        width: 100%;
+        min-height: auto;
+        transform: none;
+      }
+
+      .flywheel-core {
+        height: auto;
+        margin-bottom: 12px;
+      }
+
+      .flywheel-core strong {
+        font-size: 1.55rem;
+      }
+
+      .flywheel-node {
+        margin-top: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav class="site-nav" aria-label="主要導覽">
+    <div class="shell nav-inner">
+      <a class="brand" href="#home" aria-label="TATAKAI Sports AI">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-text">TATAKAI Sports AI</span>
+      </a>
+      <div class="nav-links">
+        <a href="#data">3D Data</a>
+        <a href="#voice">TTS</a>
+        <a href="#rag">RAG</a>
+        <a href="#platform">Platform</a>
+      </div>
+      <a class="nav-cta" href="#data">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        觀看 Demo
+      </a>
+    </div>
+  </nav>
+
+  <main>
+    <section class="section" id="home" aria-labelledby="home-title">
+      <img class="hero-bg" src="assets/hero-court-ai.png" alt="" aria-hidden="true">
+      <div class="shell hero-grid">
+        <div class="hero-copy reveal">
+          <div class="kicker" data-motion-eyebrow>羽球 AI 賽事平台</div>
+          <h1 class="headline" id="home-title">
+            <span data-motion-title-line>讓 AI 看見羽球的</span>
+            <span data-motion-title-line><span class="accent">第三維</span>。</span>
+          </h1>
+          <p class="lead" data-motion-lead>TATAKAI Sports AI 將羽球比賽影片轉換成 3D 賽事資料，生成專業 AI 賽評與語音播報，協助賽事轉播與訓練分析更快看懂每一回合。</p>
+          <div class="hero-actions">
+            <a class="primary-cta" href="#data">觀看產品 Demo</a>
+            <a class="ghost-cta" href="#platform">了解平台願景</a>
+          </div>
+
+          <div class="product-pillars reveal" aria-label="產品核心能力">
+            <div class="pillar-card">
+              <span>3D 賽事重建</span>
+              <strong>雙攝影機重建賽場</strong>
+              <p>把 2D 轉播影像整理成球員骨架、球路與擊球位置。</p>
+            </div>
+            <div class="pillar-card">
+              <span>專業賽評生成</span>
+              <strong>生成專業 AI 賽評</strong>
+              <p>結合專家語料與 RAG 知識庫，輸出有戰術脈絡的講評。</p>
+            </div>
+            <div class="pillar-card">
+              <span>語音播報輸出</span>
+              <strong>轉換成賽事播報</strong>
+              <p>透過 TTS 將文字賽評變成具臨場感的語音輸出。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="data" aria-labelledby="data-title">
+      <div class="shell">
+        <div class="section-copy reveal">
+          <div class="kicker">Video To Spatial Data</div>
+          <h2 class="section-title" id="data-title">從影片，到可計算的 <span class="accent">3D 賽場</span>。</h2>
+          <p class="lead">球員姿態、羽球軌跡、擊球位置，全部轉換成 AI 可讀的空間資料。</p>
+        </div>
+
+        <div class="media-grid reveal">
+          <div class="visual-card glow video-card">
+            <video src="assets/badminton-demo.mp4" autoplay muted loop playsinline controls preload="metadata"></video>
+            <div class="panel-label">比賽影片 × 3D 重建</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="voice" aria-labelledby="voice-title">
+      <div class="shell split-grid">
+        <div class="section-copy reveal">
+          <div class="kicker">AI Commentary Voice</div>
+          <h2 class="section-title" id="voice-title">讓 AI 賽評<span class="accent">被聽見</span>。</h2>
+          <p class="lead">TTS 將文字講評轉換成有節奏、有情緒、有臨場感的播報聲音；模型訓練導入愛爾達資深賽評盧正崇教授的專業語料。</p>
+          <span class="closing-line">盧正崇教授語料 × LLM 訓練 × AI commentary voice</span>
+        </div>
+
+        <div class="visual-card glow commentary-video-card reveal">
+          <video src="assets/ai-commentary-demo.mp4" controls playsinline preload="metadata"></video>
+          <div class="panel-label">AI 產生的賽評影片</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="rag" aria-labelledby="rag-title">
+      <div class="scan-line" aria-hidden="true"></div>
+      <div class="shell">
+        <div class="section-copy">
+          <div class="kicker" data-motion-eyebrow>Expert Knowledge Layer</div>
+          <h2 class="section-title rag-title" id="rag-title">
+            <span data-motion-title-line>讓 AI 不只會說，</span>
+            <span data-motion-title-line>而是<span class="accent" data-motion-glow>真的懂球</span>。</span>
+          </h2>
+          <p class="lead" data-motion-lead>把專業球評語料與戰術知識整理成可檢索的內容，透過 RAG 注入 LLM，讓每一句賽評都有脈絡、有依據。</p>
+        </div>
+
+        <div class="rag-visual">
+          <div class="visual-card glow rag-pipeline-card" aria-label="專家知識到 AI 賽評的產品流程">
+            <div class="panel-label">Expert RAG Pipeline</div>
+            <div class="rag-flow">
+              <div class="rag-step" data-motion-card data-pipeline-card="left">
+                <div>
+                  <span>01 Expert Corpus</span>
+                  <strong>盧正崇教授語料</strong>
+                  <p>收斂資深賽評的站位、節奏、判斷與戰術語彙。</p>
+                  <div class="commentary-stack" aria-hidden="true">
+                    <div class="quote-card one">連續壓迫後場，拉開對手防線。</div>
+                    <div class="quote-card two">後場重拍後轉守，尋找反擊節奏。</div>
+                    <div class="quote-card three">戰術節奏創造了空間優勢。</div>
+                  </div>
+                  <div class="mini-wave" aria-hidden="true"></div>
+                </div>
+                <div class="rag-token">Commentary DNA</div>
+              </div>
+
+              <div class="rag-arrow" data-pipeline-arrow="left" aria-hidden="true">
+                <span class="flow-particle" style="--particle-delay: 0ms"></span>
+                <span class="flow-particle" style="--particle-delay: 110ms"></span>
+                <span class="flow-particle" style="--particle-delay: 220ms"></span>
+              </div>
+
+              <div class="rag-step layer" data-motion-card data-pipeline-card="core">
+                <div>
+                  <span>02 Retrieval Layer</span>
+                  <strong>RAG 知識層</strong>
+                  <p>比對當前回合的 3D 資料與相似戰術片段，找出最接近的專業講評脈絡。</p>
+                  <div class="knowledge-diagram" aria-hidden="true">
+                    <div class="source-list">
+                      <span>3D Tracking</span>
+                      <span>Tactical Tags</span>
+                      <span>Game Context</span>
+                    </div>
+                    <svg class="knowledge-lines" viewBox="0 0 360 210" preserveAspectRatio="none">
+                      <path d="M92 48 C142 58 150 92 180 104 C210 118 230 62 270 54"></path>
+                      <path d="M92 104 C142 104 150 104 180 104 C218 104 232 104 270 104"></path>
+                      <path d="M92 160 C138 144 148 122 180 104 C218 84 236 136 270 154"></path>
+                    </svg>
+                    <div class="rag-database" data-rag-database></div>
+                    <div class="retrieval-list">
+                      <span>相似回合</span>
+                      <span>戰術語境</span>
+                      <span>播報語氣</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="rag-token">Tactical Context</div>
+              </div>
+
+              <div class="rag-arrow" data-pipeline-arrow="right" aria-hidden="true">
+                <span class="flow-particle" style="--particle-delay: 0ms"></span>
+                <span class="flow-particle" style="--particle-delay: 110ms"></span>
+                <span class="flow-particle" style="--particle-delay: 220ms"></span>
+              </div>
+
+              <div class="rag-step" data-motion-card data-pipeline-card="right">
+                <div>
+                  <span>03 AI Output</span>
+                  <strong>專業賽評輸出</strong>
+                  <p>生成可直接進入轉播、TTS 或賽後分析的講評文本。</p>
+                  <div class="output-bubble">這波進攻透過連續的後場壓迫，成功創造出空檔機會。</div>
+                  <div class="audio-strip" aria-hidden="true">
+                    <div class="play-dot">▶</div>
+                    <div class="audio-bars" data-waveform></div>
+                    <span>00:18</span>
+                  </div>
+                </div>
+                <div class="rag-token">Broadcast Ready</div>
+              </div>
+            </div>
+
+            <div class="rag-benefits" aria-label="RAG 產品價值">
+              <div class="rag-benefit" data-motion-card>
+                <div class="benefit-icon">01</div>
+                <div>
+                  <strong>專業脈絡</strong>
+                  <p>源自專業語料，確保每句話都有依據。</p>
+                </div>
+              </div>
+              <div class="rag-benefit" data-motion-card>
+                <div class="benefit-icon">02</div>
+                <div>
+                  <strong>戰術對齊</strong>
+                  <p>對齊回合資料與 3D 情境，提升講評精準度。</p>
+                </div>
+              </div>
+              <div class="rag-benefit" data-motion-card>
+                <div class="benefit-icon">03</div>
+                <div>
+                  <strong>可直接播報</strong>
+                  <p>輸出結構化文本，無縫接入轉播與 TTS。</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="platform" aria-labelledby="platform-title">
+      <div class="shell platform-grid">
+        <div class="section-copy platform-copy reveal">
+          <div class="kicker">AI Sports Data Platform</div>
+          <h2 class="section-title" id="platform-title">打造下一代<br><span class="accent">AI 運動</span><br><span class="accent">數據平台</span>。</h2>
+          <p class="lead">從單場賽評出發，延伸到球員分析、戰術資料庫、訓練回饋與智慧轉播。</p>
+          <span class="closing-line">From one match to a self-improving sports intelligence loop.</span>
+
+          <div class="platform-status" aria-label="平台狀態">
+            <div class="status-pulse" aria-hidden="true">
+              <svg viewBox="0 0 48 48" fill="none">
+                <path d="M4 25h8l4-13 7 26 5-19 4 6h12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="status-item">
+              <span>System Status</span>
+              <strong>AI Engine Running</strong>
+            </div>
+            <div class="status-item metric">
+              <span>Rally</span>
+              <strong>104</strong>
+            </div>
+            <div class="status-item metric">
+              <span>FPS</span>
+              <strong>60</strong>
+            </div>
+            <div class="status-item metric">
+              <span>Court</span>
+              <strong>OK</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="flywheel-card reveal" aria-label="AI 運動數據平台循環">
+          <svg class="court-ghost" viewBox="0 0 320 460" aria-hidden="true">
+            <rect x="54" y="20" width="212" height="420"></rect>
+            <line x1="54" y1="230" x2="266" y2="230"></line>
+            <line x1="160" y1="20" x2="160" y2="440"></line>
+            <line x1="54" y1="104" x2="266" y2="104"></line>
+            <line x1="54" y1="356" x2="266" y2="356"></line>
+            <line x1="86" y1="20" x2="86" y2="440"></line>
+            <line x1="234" y1="20" x2="234" y2="440"></line>
+          </svg>
+
+          <svg class="flywheel-lines" viewBox="0 0 760 620" aria-hidden="true">
+            <circle class="flywheel-arc" cx="390" cy="316" r="218"></circle>
+            <circle class="flywheel-pulse" cx="390" cy="316" r="218"></circle>
+            <circle class="flywheel-ring" cx="390" cy="316" r="218"></circle>
+          </svg>
+
+          <div class="flywheel-core">
+            <span>MATCH DATA FLYWHEEL</span>
+            <strong>Match<br>Intelligence<br>Core</strong>
+          </div>
+
+          <div class="flywheel-node node-capture">
+            <div class="node-icon">01</div>
+            <div>
+              <span>Capture</span>
+              <strong>比賽影像輸入</strong>
+              <p>雙攝影機取得賽事畫面。</p>
+            </div>
+          </div>
+          <div class="flywheel-node node-reconstruct">
+            <div class="node-icon">02</div>
+            <div>
+              <span>Reconstruct</span>
+              <strong>3D 賽事重建</strong>
+              <p>產生骨架、球路與空間座標。</p>
+            </div>
+          </div>
+          <div class="flywheel-node node-understand">
+            <div class="node-icon">03</div>
+            <div>
+              <span>Understand</span>
+              <strong>戰術語境理解</strong>
+              <p>結合 RAG 與專家語料判讀回合。</p>
+            </div>
+          </div>
+          <div class="flywheel-node node-broadcast">
+            <div class="node-icon">04</div>
+            <div>
+              <span>Broadcast</span>
+              <strong>AI 賽評播報</strong>
+              <p>輸出文字講評與語音影片。</p>
+            </div>
+          </div>
+          <div class="flywheel-node node-improve">
+            <div class="node-icon">05</div>
+            <div>
+              <span>Improve</span>
+              <strong>資料回饋訓練</strong>
+              <p>累積球員、戰術與訓練洞察。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("visible");
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.18 });
+
+    document.querySelectorAll(".reveal").forEach((item, index) => {
+      item.style.transitionDelay = `${Math.min(index * 70, 220)}ms`;
+      revealObserver.observe(item);
+    });
+  </script>
+  <script>
+    window.addEventListener("load", () => {
+      import("https://esm.sh/framer-motion@11.18.2/dom")
+        .then(({ animate }) => {
+          const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          const cubic = [0.22, 1, 0.36, 1];
+          const animatedSections = new WeakSet();
+
+          function setInstant(element, state) {
+            if (element) animate(element, state, { duration: 0 });
+          }
+
+          function setInstantAll(elements, state) {
+            elements.forEach((element) => setInstant(element, state));
+          }
+
+          function animateSectionIntro(section) {
+            const eyebrow = section.querySelector("[data-motion-eyebrow]");
+            const lines = section.querySelectorAll("[data-motion-title-line]");
+            const lead = section.querySelector("[data-motion-lead]");
+            const glowWord = section.querySelector("[data-motion-glow]");
+
+            if (eyebrow) {
+              animate(eyebrow, { opacity: [0, 1], x: [-28, 0] }, { duration: 0.68, ease: cubic });
+            }
+
+            lines.forEach((line, index) => {
+              animate(line, { opacity: [0, 1], y: [24, 0] }, {
+                delay: 0.12 + index * 0.12,
+                duration: 0.82,
+                ease: cubic
+              });
+            });
+
+            if (lead) {
+              animate(lead, { opacity: [0, 1], y: [16, 0] }, {
+                delay: 0.36,
+                duration: 0.72,
+                ease: cubic
+              });
+            }
+
+            if (glowWord) {
+              animate(glowWord, {
+                textShadow: [
+                  "0 0 0 rgba(185, 255, 61, 0)",
+                  "0 0 34px rgba(185, 255, 61, 0.72)",
+                  "0 0 0 rgba(185, 255, 61, 0)"
+                ],
+                filter: [
+                  "drop-shadow(0 0 0 rgba(185, 255, 61, 0))",
+                  "drop-shadow(0 0 18px rgba(185, 255, 61, 0.44))",
+                  "drop-shadow(0 0 0 rgba(185, 255, 61, 0))"
+                ]
+              }, {
+                delay: 0.64,
+                duration: 1.02,
+                ease: cubic
+              });
+            }
+          }
+
+          function prepareRagPipeline(section) {
+            if (!section || section.dataset.pipelineReady === "true") return;
+            section.dataset.pipelineReady = "true";
+
+            setInstantAll(section.querySelectorAll("[data-pipeline-card]"), {
+              opacity: 0,
+              y: 18,
+              scale: 0.985
+            });
+            setInstantAll(section.querySelectorAll("[data-pipeline-arrow]"), { opacity: 0 });
+            setInstantAll(section.querySelectorAll(".rag-benefit"), { opacity: 0, y: 14 });
+            section.querySelectorAll("[data-pipeline-arrow]").forEach((arrow) => {
+              arrow.classList.remove("is-flowing");
+            });
+            section.querySelector("[data-waveform]")?.classList.remove("is-playing");
+          }
+
+          function runRagPipeline(section) {
+            const leftCard = section.querySelector('[data-pipeline-card="left"]');
+            const coreCard = section.querySelector('[data-pipeline-card="core"]');
+            const rightCard = section.querySelector('[data-pipeline-card="right"]');
+            const leftArrow = section.querySelector('[data-pipeline-arrow="left"]');
+            const rightArrow = section.querySelector('[data-pipeline-arrow="right"]');
+            const database = section.querySelector("[data-rag-database]");
+            const waveform = section.querySelector("[data-waveform]");
+            const benefits = section.querySelectorAll(".rag-benefit");
+
+            animate(leftCard, { opacity: [0, 1], y: [18, 0], scale: [0.985, 1] }, {
+              delay: 0.28,
+              duration: 0.52,
+              ease: cubic
+            });
+
+            animate(leftArrow, { opacity: [0, 1] }, {
+              delay: 0.7,
+              duration: 0.2,
+              ease: "linear"
+            });
+            window.setTimeout(() => leftArrow?.classList.add("is-flowing"), 700);
+
+            animate(coreCard, {
+              opacity: [0, 1],
+              y: [18, 0],
+              scale: [0.985, 1]
+            }, {
+              delay: 1.02,
+              duration: 0.54,
+              ease: cubic
+            });
+
+            if (database) {
+              animate(database, {
+                scale: [1, 1.08, 1],
+                boxShadow: [
+                  "0 0 44px rgba(185, 255, 61, 0.28), inset 0 0 22px rgba(185, 255, 61, 0.18)",
+                  "0 0 68px rgba(185, 255, 61, 0.48), inset 0 0 30px rgba(185, 255, 61, 0.26)",
+                  "0 0 44px rgba(185, 255, 61, 0.28), inset 0 0 22px rgba(185, 255, 61, 0.18)"
+                ]
+              }, {
+                delay: 1.22,
+                duration: 0.58,
+                ease: cubic
+              });
+            }
+
+            animate(rightArrow, { opacity: [0, 1] }, {
+              delay: 1.55,
+              duration: 0.2,
+              ease: "linear"
+            });
+            window.setTimeout(() => rightArrow?.classList.add("is-flowing"), 1550);
+
+            animate(rightCard, { opacity: [0, 1], y: [18, 0], scale: [0.985, 1] }, {
+              delay: 1.9,
+              duration: 0.5,
+              ease: cubic
+            });
+
+            benefits.forEach((benefit, index) => {
+              animate(benefit, { opacity: [0, 1], y: [14, 0] }, {
+                delay: 2.02 + index * 0.06,
+                duration: 0.38,
+                ease: cubic
+              });
+            });
+
+            window.setTimeout(() => waveform?.classList.add("is-playing"), 2140);
+          }
+
+          function runMotion(section) {
+            if (prefersReducedMotion || animatedSections.has(section)) return;
+            animatedSections.add(section);
+
+            animateSectionIntro(section);
+
+            if (section.id === "rag") {
+              runRagPipeline(section);
+              return;
+            }
+
+            const cards = section.querySelectorAll("[data-motion-card]");
+            cards.forEach((card, index) => {
+              animate(card, { opacity: [0, 1], y: [18, 0] }, {
+                delay: 0.46 + index * 0.07,
+                duration: 0.72,
+                ease: cubic
+              });
+            });
+          }
+
+          if (!prefersReducedMotion) {
+            prepareRagPipeline(document.querySelector("#rag"));
+
+            const motionObserver = new IntersectionObserver((entries) => {
+              entries.forEach((entry) => {
+                if (entry.isIntersecting) runMotion(entry.target);
+              });
+            }, { threshold: 0.14, rootMargin: "0px 0px -8% 0px" });
+
+            ["#home", "#rag"].forEach((selector) => {
+              const section = document.querySelector(selector);
+              if (section) motionObserver.observe(section);
+            });
+
+            const scanLine = document.querySelector("#rag .scan-line");
+            if (scanLine) {
+              animate(scanLine, {
+                opacity: [0, 0.18, 0],
+                y: ["-18%", "126%"]
+              }, {
+                duration: 6,
+                repeat: Infinity,
+                ease: "linear"
+              });
+            }
+          }
+        })
+        .catch(() => {
+          document.querySelector(".scan-line")?.removeAttribute("style");
+        });
+    });
+  </script>
+</body>
+</html>
